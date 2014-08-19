@@ -2,9 +2,6 @@ all: p.pdf
 
 p.pdf: p.tex
 	pdflatex p.tex
-	bibtex p
-	pdflatex p.tex
-	pdflatex p.tex
 
 .PHONY: clean
 clean:

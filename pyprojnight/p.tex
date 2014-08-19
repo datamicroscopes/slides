@@ -20,9 +20,9 @@
 \title[data-microscopes]{
   \texttt{data-microscopes}: Bayesian non-parametric inference made simple in Python
 }
-\author{Stephen Tu}
+\author[Stephen Tu]{Stephen Tu \\ \texttt{tu.stephenl@gmail.com}}
 %\institute{MIT CSAIL}
-\date[SFPython]{SF Python - August 20, 2014}
+\date[SF Python]{SF Python - August 20, 2014}
 
 \newtheorem{mydef}{Definition}
 \newtheorem{mylemma}{Lemma}
@@ -38,6 +38,7 @@
 \newcommand{\A}{\ensuremath{\mathcal{A}}}
 \newcommand{\X}{\ensuremath{\mathcal{X}}}
 \newcommand{\Y}{\ensuremath{\mathcal{Y}}}
+\newcommand{\C}{\ensuremath{\mathcal{C}}}
 \newcommand{\Z}{\ensuremath{\mathcal{Z}}}
 \newcommand{\R}{\ensuremath{\mathbb{R}}}
 \newcommand{\Q}{\ensuremath{\mathbb{Q}}}
@@ -67,8 +68,7 @@
 \titlepage
 \end{frame}
 
-\section{Preliminaries}
-\subsection{Definitions}
+\section{Introduction}
 
 \begin{frame}
 \frametitle{Why do we need yet another machine learning library?}
@@ -89,23 +89,28 @@ some area of machine learning:
 \frametitle{Why do we need yet another machine learning library?}
 \begin{block}{Goal}
 \emph{Do one thing well}: inference (via Markov Chain Monte Carlo)
-for a fixed set of non-parametric models 
+for a fixed set of non-parametric models.
 \end{block}
 
 Doing it well means being \textbf{correct} and \textbf{fast}!
 \end{frame}
 
-
 \begin{frame}
 \frametitle{Great, so what does it mean to be Bayesian and non-parametric?}
 \begin{itemize}[<+->]
-  \item \textbf{Disclaimer}: way too much to possibly cover in a short time!
+  \item \textbf{Disclaimer}: way too much to possibly cover in a short time, 
+    so here's the 1000 miles above view.
+  \item \emph{Bayesian}: encode our existing beliefs about the world with prior distributions.
+  \item \emph{Non-parametric}: extend these priors to incorporate what we usually
+    think of as fixed parameters.
   \item We'll focus on one specific problem: 
     given a set of points, find the most likely clustering.
   \item This will lead us to the \emph{Dirichlet process mixture model}.
 \end{itemize}
 \end{frame}
 
+\section{DPMM}
+\subsection{Definition}
 
 \begin{frame}
 \frametitle{Dirichlet process mixture model}
@@ -165,23 +170,124 @@ Doing it well means being \textbf{correct} and \textbf{fast}!
 \frametitle{Dirichlet process mixture model}
 \begin{itemize}[<+->]
   \item The previous mathematical description is probably too abstract to mean
-    anything at this point.
-
+    anything at this point. (For instance, I didn't define formally what a 
+    Dirichlet Process is...)
+  \item Let's discuss an alternative view known as the 
+    \textbf{Chinese Restaurant Process} which is \emph{way} more intuitive.
 \end{itemize}
 \end{frame}
 
 
-
-\section{Conclusion}
 \begin{frame}
-\frametitle{Conclusion}
-Thanks! Questions?
-\cite{chaudhuri11}
+\frametitle{Dirichlet process mixture model}
+\begin{itemize}[<+->]
+  \item To make things more concrete and simple, let's say each $Y_i \in \{0,1\}^{D}$.
+  \item Imagine a Chinese restaurant in SF with \emph{infinite} tables.
+  \item Furthermore, each table $T_i$ has a vector $\Theta^{(i)} = (\theta^{(i)}_1, ..., \theta^{(i)}_D)$, with
+    each $\theta^{(i)}_j \sim \text{Beta}(\gamma, \beta),\; j{=}1,...,D$.
+  \item To draw a value $Y_i$, first pick a table $T_j$, and then draw $Y_i \sim (\text{Bernoulli}(\theta^{(j)}_1), ..., \text{Bernoulli}(\theta^{(j)}_D))$.
+  \item To reference our previous notation, $H=\text{Beta}(\gamma,\beta)^{D}$ and $F=\text{Bernoulli}(\cdot)^{D}$.
+\end{itemize}
 \end{frame}
 
-\begin{frame}[allowframebreaks]{References}
-\small
-\bibliographystyle{alpha}
-\bibliography{p}
+\begin{frame}
+\frametitle{Dirichlet process mixture model}
+\begin{itemize}[<+->]
+  \item So how do we pick a table?
+  \item Suppose there are $n_j$ existing people at table $T_j$, and suppose we are the $n+1$-th observation.
+  \item Pick table $T_j$ with probability $\frac{n_j}{n + \alpha}$, otherwise pick an empty table
+    with probability $\frac{\alpha}{n + \alpha}$.
+  \item Note: can prove that expected number of tables filled is $O(\alpha \log{n})$.
+\end{itemize}
 \end{frame}
+
+\subsection{Inference}
+
+\begin{frame}
+\frametitle{How do we learn the model?}
+Two major approaches in the literature:
+\begin{itemize}[<+->]
+  \item Markov chain monte carlo (e.g. gibbs sampling)
+  \item Variational methods 
+\end{itemize}
+\pause
+\texttt{data-microscopes} only implements MCMC (for now!). 
+\end{frame}
+
+\begin{frame}
+\frametitle{Gibbs sampling for DPMM}
+\begin{block}{Problem statement}
+Given $n$ data points $\Y = (Y_1, ..., Y_n)$, our goal is to learn the
+distribution $p(\C | \Y)$, where $\C$ is the clustering (assignment vector) of $\Y$.
+\end{block}
+\textbf{Note:} when we say ``learn the distribution'' we mean draw
+(independent) samples from.
+\end{frame}
+
+
+\begin{frame}
+\frametitle{Gibbs sampling for DPMM}
+Due to time constraints, please take on faith the following assertions:
+\begin{itemize}[<+->]
+  \item An exact analytical solution for $p(\C | \Y)$ is not readily available.
+  \item Sampling $c_i^{(t)} \gets p(c_i | \C^{(t-1)}_{\neg i}, \Y), \;
+    i=1,...,n$ over and over (and over) will \emph{eventually} get us $p(\C | \Y)$.
+  \item The above strategy is called \emph{gibbs sampling}.
+\end{itemize}
+\end{frame}
+
+
+\begin{frame}
+\frametitle{Gibbs sampling for DPMM}
+To gibbs sample, all we need to do is derive $p(c_i{=}k | \C_{\neg i}, \Y)$. Well,
+this is simply: \pause
+\begin{align*}
+  p(c_i{=}k | \C_{\neg i}, \Y) &\propto p(c_i{=}k, \C_{\neg i}, \Y) \\
+                               &= p(c_i{=}k | \C_{\neg i}) p(Y_i | \Y^{(k)}) \\
+                               &= p(c_i{=}k | \C_{\neg i}) \int_{\theta} p(Y_i | \theta) p(\theta | \Y^{(k)}) \; d\theta
+\end{align*}
+\pause
+
+The $p(c_i{=}k|\C_{\neg i})$ term is easy to calculate given the CRP interpretation! \newline
+\pause
+
+Furthermore, if we pick $H$ and $F$ nicely, then the integral on the RHS has an analytical solution!
+\end{frame}
+
+
+\begin{frame}
+\frametitle{Gibbs sampling for DPMM}
+For example, in the binary $Y_i \in \{0,1\}^{D}$ case, when we picked $H$ as
+the Beta distribution and $F$ as Bernoulli, the gibbs sampler distribution
+$p(c_i{=}k | \C_{\neg i}, \Y)$
+is (proportional to): \pause
+\begin{align*}
+  \frac{ |\Y^{(k)}_{\neg i}| }{ n - 1 + \alpha } \prod_{d=1}^{D} \frac{\left(\beta+\sum_{y_k\in \Y^{(k)}_{\neg i}} y_k^{(d)}\right)^{y_i^{(d)}} \left(  \gamma + |\Y^{(k)}_{\neg i}| - \sum_{y_k\in \Y^{(k)}_{\neg i}} y_k^{(d)}\right)^{(1-y_i^{(d)})} }{ \beta + \gamma + |\Y^{(k)}_{\neg i}| }
+\end{align*}
+when $k$ is an existing cluster and 
+\begin{align*}
+  \frac{ \alpha }{ n - 1 + \alpha } \prod_{d=1}^{D} \left(\frac{\beta}{\beta+\gamma}\right)^{y_i^{(d)}} \left(\frac{\gamma}{\beta+\gamma}\right)^{1-y_i^{(d)}}
+\end{align*}
+when $k$ is a new cluster.
+\end{frame}
+
+
+\section{Using data-microscopes}
+
+\begin{frame}
+\frametitle{Using \texttt{data-microscopes}}
+\texttt{data-microscopes} implements what we talked about (and more!) 
+\newline
+\newline
+\pause
+
+\textbf{Now let's see the library in action!}
+\end{frame}
+
+%\begin{frame}[allowframebreaks]{References}
+%\small
+%\bibliographystyle{alpha}
+%\bibliography{p}
+%\end{frame}
+
 \end{document}
